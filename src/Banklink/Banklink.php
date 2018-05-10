@@ -59,7 +59,8 @@ abstract class Banklink
     
     public function prepareAuthRequest($language = null)
     {
-    	$requestData = $this->protocol->prepareAuthRequestData($language);
+
+      $requestData = $this->protocol->prepareAuthRequestData($language);
     	$requestData = array_merge($requestData, $this->getAdditionalFields());
     
     	return new AuthRequest($this->requestUrl, $requestData);
