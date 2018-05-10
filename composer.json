@@ -1,0 +1,16 @@
+{
+    "name": "dkozickis/latvija-banklink",
+    "type": "library",
+    "description": "Banklink is a PHP library that makes integrating various Baltic banks internet services ('bank links') easy, fast and reliable.",
+    "keywords": ["Banklink", "Pangalink", "Baltic bank services"],
+    "license": "MIT",
+    "require": {
+        "php": ">=7.0.0",
+        "ext-mbstring": "*",
+        "lib-openssl": "*",
+        "robrichards/xmlseclibs": "^3.0"
+    },
+    "autoload": {
+        "psr-0": { "Banklink": "src/" }
+    }
+}
