@@ -10,6 +10,7 @@ use Banklink\Response\AuthResponse;
 
 use Banklink\Protocol\Util\ProtocolUtils;
 
+use Banklink\Response\Response;
 use RobRichards\XMLSecLibs\XMLSecEnc;
 use RobRichards\XMLSecLibs\XMLSecurityDSig;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
@@ -249,14 +250,30 @@ class CitadeleProtocol implements ProtocolInterface
      */
     public function handleResponse(array $responseData, $inputEncoding)
     {
+
         $verificationSuccess = $this->verifyResponseSignature($responseData, $inputEncoding);
 
         $responseData = ProtocolUtils::convertValues($responseData, $inputEncoding, 'UTF-8');
 
-        $service = $responseData[Fields::SERVICE_ID];
-        if (in_array($service, Services::getPaymentServices())) {
-            return $this->handlePaymentResponse($responseData, $verificationSuccess);
+        $doc = new \DOMDocument();
+        $doc->loadXML($responseData['xmldata']);
+
+        if (200 == $doc->getElementsByTagName('Code')[0]->nodeValue) {
+            return new Response(0, []);
         }
+
+        $responseData = [
+            'request' => $doc->getElementsByTagName('Request')[0]->nodeValue,
+            'personalCode' => $doc->getElementsByTagName('PersonCode')[0]->nodeValue,
+            'person' => $doc->getElementsByTagName('Person')[0]->nodeValue,
+            'code' => $doc->getElementsByTagName('Code')[0]->nodeValue,
+        ];
+
+        $service = $responseData[Fields::SERVICE_ID];
+        // TODO: Payment processing
+        /*if (in_array($service, Services::getPaymentServices())) {
+            return $this->handlePaymentResponse($responseData, $verificationSuccess);
+        }*/
         if (in_array($service, Services::getAuthenticationServices())) {
             return $this->handleAuthResponse($responseData, $verificationSuccess);
         }
@@ -285,18 +302,45 @@ class CitadeleProtocol implements ProtocolInterface
         $objXMLSecDSig->idKeys = ['wsu:Id'];
         $objXMLSecDSig->idNS = ['wsu' => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'];
 
-        if (!$retVal = $objXMLSecDSig->validateReference()) {
-            throw new \Exception('Reference Validation Failed');
+        try {
+            $retVal = $objXMLSecDSig->validateReference();
+        } catch (\Exception $e) {
+            return null;
         }
 
         if (!$objKey = $objXMLSecDSig->locateKey()) {
-            throw new \Exception('We have no idea about the key');
+            return null;
         }
+
         $key = null;
 
         $objKeyInfo = XMLSecEnc::staticLocateKeyInfo($objKey, $objDSig);
 
         return $objXMLSecDSig->verify($objKey) === 1;
+    }
+
+    public function handleAuthResponse(array $responseData, $verificationSuccess)
+    {
+        // if response was verified, try to guess status by service id
+
+
+        if ($verificationSuccess) {
+            $status = $responseData[Fields::SERVICE_STATUS] == Services::AUTHENTICATE_SUCCESS ? PaymentResponse::STATUS_SUCCESS : PaymentResponse::STATUS_CANCEL;
+        } else {
+            $status = PaymentResponse::STATUS_ERROR;
+        }
+
+        $response = new AuthResponse($status, $responseData);
+
+        if (AuthResponse::STATUS_SUCCESS === $status) {
+            $infoField = explode(' ', $responseData[Fields::VK_INFO]);
+            $response->setPersonalCode(substr_replace($responseData[Fields::VK_USER], '-', 6, 0));
+            $response->setFirstname(trim($infoField[0]));
+            $response->setLastname(trim($infoField[1]));
+
+        }
+
+        return $response;
     }
 
     /**
@@ -326,43 +370,6 @@ class CitadeleProtocol implements ProtocolInterface
             $response->setSenderBankAccount($responseData[Fields::SENDER_BANK_ACC]);
             $response->setTransactionId($responseData[Fields::TRANSACTION_ID]);
             $response->setTransactionDate(new \DateTime($responseData[Fields::TRANSACTION_DATE]));
-        }
-
-        return $response;
-    }
-
-    public function handleAuthResponse(array $responseData, $verificationSuccess)
-    {
-        // if response was verified, try to guess status by service id
-        if ($verificationSuccess) {
-            $status = $responseData[Fields::SERVICE_ID] == Services::AUTHENTICATE_SUCCESS ? PaymentResponse::STATUS_SUCCESS : PaymentResponse::STATUS_CANCEL;
-        } else {
-            $status = PaymentResponse::STATUS_ERROR;
-        }
-
-        $response = new AuthResponse($status, $responseData);
-        $response->setPersonalCode($responseData[Fields::VK_USER]);
-
-        if (AuthResponse::STATUS_SUCCESS === $status) {
-            $infoField = explode(';', $responseData[Fields::VK_INFO]);
-            $infoFields = [];
-
-            foreach ($infoField as $field) {
-                list($name, $value) = explode(':', $field);
-                $infoFields[$name] = $value;
-            }
-
-            // $idCode = $infoFields['ISIK'];
-            $fullname = $infoFields['NIMI'];
-
-            if (strpos($fullname, ',') !== false) {
-                $response->setLastname(substr($fullname, 0, strpos($fullname, ',')));
-                $response->setFirstname(substr($fullname, strpos($fullname, ',') + 1));
-            } else {
-                $response->setFirstname(substr($fullname, 0, strpos($fullname, ' ')));
-                $response->setLastname(substr($fullname, strpos($fullname, ' ') + 1));
-            }
-
         }
 
         return $response;

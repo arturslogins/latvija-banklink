@@ -9,6 +9,7 @@ use Banklink\Response\PaymentResponse;
 use Banklink\Response\AuthResponse;
 
 use Banklink\Protocol\Util\ProtocolUtils;
+use Banklink\Response\Response;
 
 
 /**
@@ -134,11 +135,16 @@ class iPizzaLatvia implements ProtocolInterface
      */
     public function handleResponse(array $responseData, $inputEncoding)
     {
+        $service = $responseData[$this->fieldsClass::SERVICE_ID];
+
+        if (in_array($service, Services::getDeclinedServices())) {
+            return new Response(0, []);
+        }
+
         $verificationSuccess = $this->verifyResponseSignature($responseData, $inputEncoding);
 
         $responseData = ProtocolUtils::convertValues($responseData, $inputEncoding, 'UTF-8');
 
-        $service = $responseData[$this->fieldsClass::SERVICE_ID];
         if (in_array($service, Services::getPaymentServices())) {
             return $this->handlePaymentResponse($responseData, $verificationSuccess);
         }
