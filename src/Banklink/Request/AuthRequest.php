@@ -8,4 +8,6 @@ namespace Banklink\Request;
  * @author Roman Marintsenko <inoryy@gmail.com>
  * @since  31.10.2012
  */
-class AuthRequest extends Request {}
+class AuthRequest extends Request
+{
+}

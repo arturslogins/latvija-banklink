@@ -40,6 +40,7 @@ class iPizzaLatviaIb extends iPizzaLatvia
         return $requestData;
 
     }
+
     public function handleAuthResponse(array $responseData, $verificationSuccess)
     {
         // if response was verified, try to guess status by service id
@@ -53,7 +54,7 @@ class iPizzaLatviaIb extends iPizzaLatvia
         $response->setPersonalCode($responseData[$this->fieldsClass::VK_USER]);
 
         if (AuthResponse::STATUS_SUCCESS === $status) {
-            $infoField = explode(';', $responseData[$this->fieldsClass::VK_INFO]);
+            $infoField = explode(';', $responseData[$this->fieldsClass::VK_USER_INFO]);
             $infoFields = [];
 
             foreach($infoField as $field) {

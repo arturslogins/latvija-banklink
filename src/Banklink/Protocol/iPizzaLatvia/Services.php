@@ -50,12 +50,14 @@ final class Services
                 return array(
                     FieldsIB::SELLER_ID,            // IB_SND_ID
                     FieldsIB::SERVICE_ID,           // IB_SERVICE
-                    FieldsIB::USER_LANG,            // IB_LANG
                     FieldsIB::SELLER_ID_RESPONSE,   // IB_REC_ID Beneficiary’s identifier – constant AAA
                     FieldsIB::VK_USER,              // IB_USER
                     FieldsIB::VK_DATE,              // IB_DATE
                     FieldsIB::VK_TIME,              // IB_TIME
                     FieldsIB::VK_USER_INFO,         // IB_USER_INFO
+                    FieldsIB::PROTOCOL_VERSION      // IB_VERSION
+                    /// Parameters IB_CRC, IB_LANG and IB_FROM_SERVER are not
+                    /// used in e‐signature generation process
                 );
             case Services::PAYMENT_REQUEST:
                 return array(
@@ -146,8 +148,17 @@ final class Services
     {
         return array(
             self::AUTHENTICATE_REQUEST,
-            self::AUTHENTICATE_SUCCESS
+            self::AUTHENTICATE_SUCCESS,
+            self::IB_AUTHENTICATE_SUCCESS,
+            self::IB_AUTHENTICATE_REQUEST
         );
+    }
+
+    public static function getDeclinedServices()
+    {
+        return [
+            self::IB_AUTHENTICATE_DENIED
+        ];
     }
 
     /**
